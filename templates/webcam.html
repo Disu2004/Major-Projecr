@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Webcam Mood Detection</title>
+    <style>
+        video,
+        canvas {
+            display: block;
+            margin: 10px auto;
+            border: 2px solid #555;
+            border-radius: 8px;
+        }
+
+        .texts {
+            text-align: center;
+            font-size: 1.5rem;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        .status {
+            text-align: center;
+            color: gray;
+            font-size: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+    <h1 style="text-align:center;">Webcam Mood Detection</h1>
+
+    <video id="video" width="400" height="300" autoplay></video>
+    <canvas id="canvas" width="400" height="300" style="display:none;"></canvas>
+    <div id="result" class="texts">Detecting Mood...</div>
+    <div id="suggestions" class="texts">suggestion</div>
+
+    <!-- Audio Element (hidden) -->
+    <audio id="fearAudio" type="audio/mpeg" src="/static/music.mp3" preload="auto"></audio>
+
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const resultDiv = document.getElementById('result');
+        const suggestion = document.getElementById('suggestions');
+        const fearAudio = document.getElementById('fearAudio');
+
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+                setTimeout(() => {
+                    setInterval(captureAndDetect, 5000); // every second
+                }, 2000);
+            })
+            .catch(err => {
+                console.error("Webcam access error:", err);
+                resultDiv.textContent = "Webcam access error.";
+            });
+
+        function captureAndDetect() {
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = canvas.toDataURL('image/jpeg');
+
+            fetch('/detect_mood', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: imageData })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.mood) {
+                        resultDiv.textContent = `Detected Mood: ${data.mood}`;
+                        switch (data.mood) {
+                            case "happy":
+                                suggestion.textContent = "Aapki muskurahat toh bijli jaise hai, dil jalta hi jaa raha hai";
+                                fearAudio.pause();
+                                fearAudio.currentTime = 0;
+                                break;
+                            case "sad":
+                                suggestion.textContent = "Sad";
+                                fearAudio.pause();
+                                fearAudio.currentTime = 0;
+                                break;
+                            case "neutral":
+                                suggestion.textContent = "Ma'am na aap expression de rahi ho, na marks...";
+                                fearAudio.pause();
+                                fearAudio.currentTime = 0;
+                                break;
+                            case "angry":
+                                suggestion.textContent = "Aapka gussa bhi itna pyaara hai";
+                                fearAudio.pause();
+                                fearAudio.currentTime = 0;
+                                break;
+                            case "fear":
+                                suggestion.textContent = "Playing Hanuman Chalisa....";
+                                fearAudio.play();
+                                console.log("Playing Hanuman Chalisa....")
+                                break;
+                        }
+                    } else {
+                        resultDiv.textContent = `Error: ${data.error}`;
+                    }
+                })
+                .catch(err => {
+                    resultDiv.textContent = `Fetch error: ${err}`;
+                });
+        }
+    </script>
+</body>
+
+</html>
